@@ -1,17 +1,24 @@
-import streamlit as st
-import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+import pandas as pd
 import seaborn as sns
-from statsmodels.tsa.arima.model import ARIMA
-from sklearn.metrics import mean_squared_error
-from math import sqrt
+import logging
 import warnings
 import calendar
+import streamlit as st
+import matplotlib.pyplot as plt
+from math import sqrt
 from scipy.stats import zscore
+from prophet import Prophet
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+from prophet.diagnostics import cross_validation, performance_metrics
+from statsmodels.tsa.arima.model import ARIMA
 from streamlit_option_menu import option_menu
 
+# --- Suppress Warnings ---
+logging.getLogger("cmdstanpy").setLevel(logging.CRITICAL)
 warnings.filterwarnings("ignore")
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 st.set_page_config(
     page_title="Coffee Time Series Analysis and Forecasting",
@@ -25,6 +32,24 @@ def load_cleaned_data():
     df = pd.read_csv("Dataset/cleaned_dataset.csv")
     df['datetime'] = pd.to_datetime(df['datetime'])
     return df
+
+@st.cache_data
+def load_count_data():
+    df = pd.read_csv("Dataset/daily_coffee_count.csv")
+    df['date'] = pd.to_datetime(df['date'])
+    return df
+
+@st.cache_data
+def load_sales_data():
+    df = pd.read_csv("Dataset/daily_coffee_sales.csv")
+    df['date'] = pd.to_datetime(df['date'])
+    return df
+
+# --- MAPE Function ---
+def mean_absolute_percentage_error(y_true, y_pred):
+    y_true, y_pred = np.array(y_true), np.array(y_pred)
+    mask = y_true != 0
+    return np.mean(np.abs((y_true[mask] - y_pred[mask]) / y_true[mask])) * 100
 
 ## -------------------------------------------------------------------------------
 
@@ -215,15 +240,90 @@ elif page == "Traditional - ARIMA":
 
 elif page == "Machine Learning - FB Prophet":
     st.title("Machine Learning Time Series Forecasting - FB Prophet")
-    data = load_cleaned_data()
-
-    # Convert datetime to index
-    data.set_index('datetime', inplace=True)
-    data = data.resample('D').sum()
-
-    # Prepare data for FB Prophet
-    df_prophet = data.reset_index().rename(columns={'datetime': 'ds', 'money': 'y'})
     
-    # Display the first few rows of the prepared data
-    st.write("## Prepared Data for FB Prophet")
-    st.dataframe(df_prophet.head())
+    st.sidebar.header("🔧 Forecast Settings")
+
+    target = st.sidebar.selectbox("What would you like to forecast?", ["Orders", "Sales"])
+    forecast_days = st.sidebar.slider("Forecast Horizon (Days)", min_value=21, max_value=180, value=21, step=7)
+
+    # --- Load data based on selection ---
+    if target == "Orders":
+        df = load_count_data()
+        df = df.rename(columns={"date": "ds", "order_count": "y"})
+        y_label = "Cups Ordered"
+    else:
+        df = load_sales_data()
+        df = df.rename(columns={"date": "ds", "total_sales": "y"})
+        y_label = "Sales Revenue"
+        
+    df['ds'] = pd.to_datetime(df['ds'])
+    df = df[['ds', 'y']].copy()
+    df['y'] = np.log1p(df['y'])  # log-transform
+    
+    test_days = 21
+    train_df = df[:-test_days]
+    test_df = df[-test_days:]
+    
+    # --- Build and Train Prophet ---
+    model = Prophet(
+        daily_seasonality=True,
+        weekly_seasonality=True,
+        yearly_seasonality=True,
+        changepoint_prior_scale=0.05,
+        seasonality_prior_scale=15 if target == "Orders" else 1
+    )
+    model.add_country_holidays(country_name='MY')
+    model.fit(train_df)
+    
+    # --- Forecast ---
+    future = model.make_future_dataframe(periods=forecast_days, freq='D')
+    forecast = model.predict(future)
+    forecast['yhat'] = np.expm1(forecast['yhat']).clip(lower=0)
+    
+    # --- Plot forecast vs actual (only last 21 days if available) ---
+    st.subheader(f"📈 Forecast vs Actual ({target})")
+
+    if forecast_days == 0:
+        y_true = np.expm1(test_df['y'].values)
+        y_pred = forecast['yhat'].iloc[-test_days:].values
+
+        fig1, ax1 = plt.subplots(figsize=(10, 5))
+        ax1.plot(test_df['ds'], y_true, label='Actual', marker='o')
+        ax1.plot(test_df['ds'], y_pred, label='Predicted', marker='x')
+        ax1.set_title(f"Prophet Forecast vs Actual ({target})")
+        ax1.set_xlabel("Date")
+        ax1.set_ylabel(y_label)
+        ax1.legend()
+        ax1.grid()
+        st.pyplot(fig1)
+
+        mae = mean_absolute_error(y_true, y_pred)
+        rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+        mape = mean_absolute_percentage_error(y_true, y_pred)
+
+        st.markdown("**📊 Forecast Accuracy:**")
+        st.write(f"MAE: {mae:.2f}")
+        st.write(f"RMSE: {rmse:.2f}")
+        st.write(f"MAPE: {mape:.2f}%")
+
+    else:
+        # Plot full forecast
+        fig2, ax2 = plt.subplots(figsize=(10, 5))
+        ax2.plot(df['ds'], np.expm1(df['y']), label="Historical", color='dodgerblue')
+        ax2.plot(forecast['ds'], forecast['yhat'], label="Forecast", color='violet')
+        start_date = df['ds'].max()
+        end_date = forecast['ds'].max()
+        ax2.axvspan(start_date, end_date, color='lightgray', alpha=0.3, label='Forecast Period')
+        ax2.set_title(f"{target} Forecast for Next {forecast_days} Days")
+        ax2.set_xlabel("Date")
+        ax2.set_ylabel(y_label)
+        ax2.legend()
+        ax2.grid()
+        st.pyplot(fig2)
+
+    # --- Component Plots ---
+    st.subheader("🔍 Seasonal Components")
+    fig3 = model.plot_components(forecast)
+    st.pyplot(fig3)
+
+
