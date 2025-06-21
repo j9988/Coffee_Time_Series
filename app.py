@@ -249,6 +249,9 @@ elif page == "Traditional - SARIMA":
         with open("sarima_model_sales.pkl", "rb") as f:
             loaded_model = pickle.load(f)
      
+    # Confirm 'ds' column exists
+    assert 'ds' in df.columns, "❌ Column 'ds' not found after renaming. Check input CSV headers."
+ 
     df['ds'] = pd.to_datetime(df['ds'])   
     # Define forecast period based on user input
     forecast = loaded_model.predict(n_periods=forecast_days)
