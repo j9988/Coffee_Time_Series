@@ -233,7 +233,7 @@ elif page == "Traditional - SARIMA":
     st.title("Traditional Time Series Forecasting - SARIMA")
     st.sidebar.header("🔧 Forecast Settings")
     target = st.sidebar.selectbox("What would you like to forecast?", ["Orders", "Sales"])
-    forecast_days = st.sidebar.slider("Forecast Horizon (Days)", min_value=14, max_value=180, value=21, step=7)
+    forecast_days = st.sidebar.slider("Forecast Horizon (Days)", min_value=7, max_value=180, value=21, step=7)
 
     # --- Load data based on selection ---
     if target == "Orders":
@@ -282,7 +282,7 @@ elif page == "Machine Learning - FB Prophet":
     st.sidebar.header("🔧 Forecast Settings")
 
     target = st.sidebar.selectbox("What would you like to forecast?", ["Orders", "Sales"])
-    forecast_days = st.sidebar.slider("Forecast Horizon (Days)", min_value=14, max_value=180, value=21, step=7)
+    forecast_days = st.sidebar.slider("Forecast Horizon (Days)", min_value=7, max_value=180, value=21, step=7)
 
     # --- Load data based on selection ---
     if target == "Orders":
@@ -297,10 +297,6 @@ elif page == "Machine Learning - FB Prophet":
     df['ds'] = pd.to_datetime(df['ds'])
     df = df[['ds', 'y']].copy()
     df['y'] = np.log1p(df['y'])  # log-transform
-    
-    # test_days = 21
-    # train_df = df[:-test_days]
-    # test_df = df[-test_days:]
     
     # --- Build and Train Prophet ---
     model = Prophet(
