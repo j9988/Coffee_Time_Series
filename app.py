@@ -233,7 +233,7 @@ elif page == "Traditional - SARIMA":
     st.title("Traditional Time Series Forecasting - SARIMA")
     st.sidebar.header("🔧 Forecast Settings")
     target = st.sidebar.selectbox("What would you like to forecast?", ["Orders", "Sales"])
-    forecast_days = st.sidebar.slider("Forecast Horizon (Days)", min_value=7, max_value=180, value=21, step=7)
+    forecast_days = st.sidebar.slider("Forecast Horizon (Days)", min_value=7, max_value=180, value=7, step=7)
 
     # --- Load data based on selection ---
     if target == "Orders":
@@ -254,7 +254,7 @@ elif page == "Traditional - SARIMA":
     forecast = loaded_model.predict(n_periods=forecast_days)
 
     # Create forecast index based on last available date in historical data
-    df = df.set_index('ds').asfreq('D')  # force daily frequency, filling gaps
+    df = df.set_index('ds').asfreq('D')  
     df = df.reset_index()
     last_date = df['ds'].max()
     forecast_index = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=forecast_days, freq='D')
@@ -264,8 +264,7 @@ elif page == "Traditional - SARIMA":
     # Use last 30 days of history for context
     historical_plot_df = df.set_index('ds')['y'].asfreq('D')
     fig, ax = plt.subplots(figsize=(10, 5))
-    ax.plot(historical_plot_df[-(30 + forecast_days):-forecast_days].index,
-            historical_plot_df[-(30 + forecast_days):-forecast_days].values,
+    ax.plot(historical_plot_df[-30:].index, historical_plot_df[-30:].values,
             label='Historical', color='dodgerblue')
     ax.plot(forecast_series.index, forecast_series.values,
             label='Forecast', color='violet', linestyle='--')
