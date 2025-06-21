@@ -266,7 +266,7 @@ elif page == "Traditional - SARIMA":
     ax.plot(historical_plot_df[-30:].index, historical_plot_df[-30:].values,
             label='Historical', color='dodgerblue')
     ax.plot(forecast_series.index, forecast_series.values,
-            label='Forecast', color='violet', linestyle='--')
+            label='Forecast', color='violet')
     ax.axvspan(forecast_series.index.min(), forecast_series.index.max(),
             color='lightgray', alpha=0.3, label='Forecast Period')
     ax.set_title(f"{target} Forecast for Next {forecast_days} Days")
