@@ -255,9 +255,8 @@ elif page == "Traditional - SARIMA":
 
     # Create forecast index based on last available date in historical data
     df = df.set_index('ds').asfreq('D')  
-    # df = df.reset_index()
-    # last_date = df['ds'].max()
-    last_date = df.index[-1]
+    # last_date = df.index[-1]
+    last_date = df['y'].last_valid_index()
     forecast_index = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=forecast_days, freq='D')
     forecast_series = pd.Series(forecast, index=forecast_index)
     
