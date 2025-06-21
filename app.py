@@ -6,13 +6,11 @@ import warnings
 import calendar
 import streamlit as st
 import matplotlib.pyplot as plt
-from math import sqrt
 from scipy.stats import zscore
 from prophet import Prophet
 from sklearn.metrics import mean_absolute_error, mean_squared_error
-from prophet.diagnostics import cross_validation, performance_metrics
-from statsmodels.tsa.arima.model import ARIMA
 from streamlit_option_menu import option_menu
+from pmdarima import auto_arima
 
 # --- Suppress Warnings ---
 logging.getLogger("cmdstanpy").setLevel(logging.CRITICAL)
@@ -57,7 +55,7 @@ def mean_absolute_percentage_error(y_true, y_pred):
 with st.sidebar:
     page = option_menu(
         "Navigation",  # Menu title
-        ["EDA - Coffee Data", "Traditional - ARIMA", "Machine Learning - FB Prophet"],  # Menu items
+        ["EDA - Coffee Data", "Traditional - SARIMA", "Machine Learning - FB Prophet"],  # Menu items
         icons=["bar-chart", "activity", "robot"],
         menu_icon="list",  # Top icon
         default_index=0  # Default selected page
@@ -230,14 +228,45 @@ if page == "EDA - Coffee Data":
     ax.legend()
     st.pyplot(fig)
 
-elif page == "Traditional - ARIMA":
-    st.title("Traditional Time Series Forecasting - ARIMA")
-    data = load_cleaned_data()
+elif page == "Traditional - SARIMA":
+    st.title("Traditional Time Series Forecasting - SARIMA")
+    st.sidebar.header("🔧 Forecast Settings")
+    target = st.sidebar.selectbox("What would you like to forecast?", ["Orders", "Sales"])
+    forecast_days = st.sidebar.slider("Forecast Horizon (Days)", min_value=21, max_value=180, value=21, step=7)
 
-    # Convert datetime to index
-    data.set_index('datetime', inplace=True)
-    data = data.resample('D').sum()
+    # --- Load data based on selection ---
+    if target == "Orders":
+        df = load_count_data()
+        df = df.rename(columns={"date": "ds", "order_count": "y"})
+        y_label = "Cups Ordered"
+    else:
+        df = load_sales_data()
+        df = df.rename(columns={"date": "ds", "total_sales": "y"})
+        y_label = "Sales Revenue"
+        
+    df = df.sort_values('ds')
+    df.set_index('ds', inplace=True)
+    df.index = pd.to_datetime(df.index)
+    df = df.asfreq('D')
+    df = df.fillna(0)
 
+    recent_df = df.tail(21)
+    # --- Fit SARIMA ---
+    st.write("### Fitting SARIMA Model")
+    with st.spinner("Fitting SARIMA model..."):
+        sarima_model = auto_arima(
+            recent_df['y'],
+            seasonal=True,
+            m=7,
+            trace=False,
+            error_action='ignore',
+            suppress_warnings=True,
+            stepwise=True
+        )
+
+    st.code(sarima_model.summary())
+
+## ---------------------------------------------------------------------------------
 elif page == "Machine Learning - FB Prophet":
     st.title("Machine Learning Time Series Forecasting - FB Prophet")
     
