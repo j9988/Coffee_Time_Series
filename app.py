@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pickle
 import seaborn as sns
 import logging
 import warnings
@@ -239,33 +240,49 @@ elif page == "Traditional - SARIMA":
         df = load_count_data()
         df = df.rename(columns={"date": "ds", "order_count": "y"})
         y_label = "Cups Ordered"
+        with open("sarima_model_orders.pkl", "rb") as f:
+            loaded_model = pickle.load(f)
     else:
         df = load_sales_data()
         df = df.rename(columns={"date": "ds", "total_sales": "y"})
         y_label = "Sales Revenue"
-        
-    df = df.sort_values('ds')
-    df.set_index('ds', inplace=True)
-    df.index = pd.to_datetime(df.index)
-    df = df.asfreq('D')
-    df = df.fillna(0)
+        with open("sarima_model_sales.pkl", "rb") as f:
+            loaded_model = pickle.load(f)
+     
+    df['ds'] = pd.to_datetime(df['ds'])   
+    # Define forecast period based on user input
+    forecast = loaded_model.predict(n_periods=forecast_days)
 
-    recent_df = df.tail(21)
-    # --- Fit SARIMA ---
-    st.write("### Fitting SARIMA Model")
-    with st.spinner("Fitting SARIMA model..."):
-        sarima_model = auto_arima(
-            recent_df['y'],
-            seasonal=True,
-            m=7,
-            trace=False,
-            error_action='ignore',
-            suppress_warnings=True,
-            stepwise=True
-        )
+    # Create forecast index based on last available date in historical data
+    last_date = df['ds'].max()
+    forecast_index = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=forecast_days, freq='D')
+    forecast_series = pd.Series(forecast, index=forecast_index)
+    
+    st.subheader(f"📈 Forecast vs Actual ({target})")
+    # Use last 30 days of history for context
+    historical_plot_df = df.set_index('ds')['y'].asfreq('D')
 
-    st.code(sarima_model.summary())
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(historical_plot_df[-(30 + forecast_days):-forecast_days].index,
+            historical_plot_df[-(30 + forecast_days):-forecast_days].values,
+            label='Historical', color='dodgerblue')
 
+    # Plot forecast
+    ax.plot(forecast_series.index, forecast_series.values,
+            label='Forecast', color='violet', linestyle='--')
+
+    # Forecast shading
+    ax.axvspan(forecast_series.index.min(), forecast_series.index.max(),
+            color='lightgray', alpha=0.3, label='Forecast Period')
+
+    # Labels and styling
+    ax.set_title(f"{target} Forecast for Next {forecast_days} Days")
+    ax.set_xlabel("Date")
+    ax.set_ylabel(y_label)
+    ax.legend()
+    ax.grid(True)
+
+    st.pyplot(fig)
 ## ---------------------------------------------------------------------------------
 elif page == "Machine Learning - FB Prophet":
     st.title("Machine Learning Time Series Forecasting - FB Prophet")
@@ -311,44 +328,19 @@ elif page == "Machine Learning - FB Prophet":
     
     # --- Plot forecast vs actual (only last 21 days if available) ---
     st.subheader(f"📈 Forecast vs Actual ({target})")
-
-    if forecast_days == 0:
-        y_true = np.expm1(test_df['y'].values)
-        y_pred = forecast['yhat'].iloc[-test_days:].values
-
-        fig1, ax1 = plt.subplots(figsize=(10, 5))
-        ax1.plot(test_df['ds'], y_true, label='Actual', marker='o')
-        ax1.plot(test_df['ds'], y_pred, label='Predicted', marker='x')
-        ax1.set_title(f"Prophet Forecast vs Actual ({target})")
-        ax1.set_xlabel("Date")
-        ax1.set_ylabel(y_label)
-        ax1.legend()
-        ax1.grid()
-        st.pyplot(fig1)
-
-        mae = mean_absolute_error(y_true, y_pred)
-        rmse = np.sqrt(mean_squared_error(y_true, y_pred))
-        mape = mean_absolute_percentage_error(y_true, y_pred)
-
-        st.markdown("**📊 Forecast Accuracy:**")
-        st.write(f"MAE: {mae:.2f}")
-        st.write(f"RMSE: {rmse:.2f}")
-        st.write(f"MAPE: {mape:.2f}%")
-
-    else:
-        # Plot full forecast
-        fig2, ax2 = plt.subplots(figsize=(10, 5))
-        ax2.plot(df['ds'], np.expm1(df['y']), label="Historical", color='dodgerblue')
-        ax2.plot(forecast['ds'], forecast['yhat'], label="Forecast", color='violet')
-        start_date = df['ds'].max()
-        end_date = forecast['ds'].max()
-        ax2.axvspan(start_date, end_date, color='lightgray', alpha=0.3, label='Forecast Period')
-        ax2.set_title(f"{target} Forecast for Next {forecast_days} Days")
-        ax2.set_xlabel("Date")
-        ax2.set_ylabel(y_label)
-        ax2.legend()
-        ax2.grid()
-        st.pyplot(fig2)
+    # Plot full forecast
+    fig2, ax2 = plt.subplots(figsize=(10, 5))
+    ax2.plot(df['ds'], np.expm1(df['y']), label="Historical", color='dodgerblue')
+    ax2.plot(forecast['ds'], forecast['yhat'], label="Forecast", color='violet')
+    start_date = df['ds'].max()
+    end_date = forecast['ds'].max()
+    ax2.axvspan(start_date, end_date, color='lightgray', alpha=0.3, label='Forecast Period')
+    ax2.set_title(f"{target} Forecast for Next {forecast_days} Days")
+    ax2.set_xlabel("Date")
+    ax2.set_ylabel(y_label)
+    ax2.legend()
+    ax2.grid()
+    st.pyplot(fig2)
 
     # --- Component Plots ---
     st.subheader("🔍 Seasonal Components")
