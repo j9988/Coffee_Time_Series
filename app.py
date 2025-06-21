@@ -249,9 +249,6 @@ elif page == "Traditional - SARIMA":
         with open("sarima_model_sales.pkl", "rb") as f:
             loaded_model = pickle.load(f)
      
-    # Confirm 'ds' column exists
-    assert 'ds' in df.columns, "❌ Column 'ds' not found after renaming. Check input CSV headers."
- 
     df['ds'] = pd.to_datetime(df['ds'])   
     # Define forecast period based on user input
     forecast = loaded_model.predict(n_periods=forecast_days)
@@ -266,7 +263,7 @@ elif page == "Traditional - SARIMA":
     
     st.subheader(f"📈 Forecast vs Actual ({target})")
     # Use last 30 days of history for context
-    historical_plot_df = df.set_index('ds')['y'].asfreq('D')
+    historical_plot_df = df['y']
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.plot(historical_plot_df[-30:].index, historical_plot_df[-30:].values,
             label='Historical', color='dodgerblue')
