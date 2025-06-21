@@ -233,7 +233,7 @@ elif page == "Traditional - SARIMA":
     st.title("Traditional Time Series Forecasting - SARIMA")
     st.sidebar.header("🔧 Forecast Settings")
     target = st.sidebar.selectbox("What would you like to forecast?", ["Orders", "Sales"])
-    forecast_days = st.sidebar.slider("Forecast Horizon (Days)", min_value=21, max_value=180, value=21, step=7)
+    forecast_days = st.sidebar.slider("Forecast Horizon (Days)", min_value=7, max_value=180, value=21, step=7)
 
     # --- Load data based on selection ---
     if target == "Orders":
@@ -261,27 +261,19 @@ elif page == "Traditional - SARIMA":
     st.subheader(f"📈 Forecast vs Actual ({target})")
     # Use last 30 days of history for context
     historical_plot_df = df.set_index('ds')['y'].asfreq('D')
-
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.plot(historical_plot_df[-(30 + forecast_days):-forecast_days].index,
             historical_plot_df[-(30 + forecast_days):-forecast_days].values,
             label='Historical', color='dodgerblue')
-
-    # Plot forecast
     ax.plot(forecast_series.index, forecast_series.values,
             label='Forecast', color='violet', linestyle='--')
-
-    # Forecast shading
     ax.axvspan(forecast_series.index.min(), forecast_series.index.max(),
             color='lightgray', alpha=0.3, label='Forecast Period')
-
-    # Labels and styling
     ax.set_title(f"{target} Forecast for Next {forecast_days} Days")
     ax.set_xlabel("Date")
     ax.set_ylabel(y_label)
     ax.legend()
     ax.grid(True)
-
     st.pyplot(fig)
 ## ---------------------------------------------------------------------------------
 elif page == "Machine Learning - FB Prophet":
