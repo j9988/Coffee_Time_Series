@@ -298,9 +298,9 @@ elif page == "Machine Learning - FB Prophet":
     df = df[['ds', 'y']].copy()
     df['y'] = np.log1p(df['y'])  # log-transform
     
-    test_days = 21
-    train_df = df[:-test_days]
-    test_df = df[-test_days:]
+    # test_days = 21
+    # train_df = df[:-test_days]
+    # test_df = df[-test_days:]
     
     # --- Build and Train Prophet ---
     model = Prophet(
@@ -311,7 +311,7 @@ elif page == "Machine Learning - FB Prophet":
         seasonality_prior_scale=15 if target == "Orders" else 1
     )
     model.add_country_holidays(country_name='MY')
-    model.fit(train_df)
+    model.fit(df)
     
     # --- Forecast ---
     future = model.make_future_dataframe(periods=forecast_days, freq='D')
