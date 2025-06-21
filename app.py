@@ -233,7 +233,7 @@ elif page == "Traditional - SARIMA":
     st.title("Traditional Time Series Forecasting - SARIMA")
     st.sidebar.header("🔧 Forecast Settings")
     target = st.sidebar.selectbox("What would you like to forecast?", ["Orders", "Sales"])
-    forecast_days = st.sidebar.slider("Forecast Horizon (Days)", min_value=7, max_value=180, value=7, step=7)
+    forecast_days = st.sidebar.slider("Forecast Horizon (Days)", min_value=14, max_value=180, value=21, step=7)
 
     # --- Load data based on selection ---
     if target == "Orders":
@@ -256,7 +256,8 @@ elif page == "Traditional - SARIMA":
     # Create forecast index based on last available date in historical data
     df = df.set_index('ds').asfreq('D')  
     df = df.reset_index()
-    last_date = df['ds'].max()
+    # last_date = df['ds'].max()
+    last_date = df.index[-1]
     forecast_index = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=forecast_days, freq='D')
     forecast_series = pd.Series(forecast, index=forecast_index)
     
