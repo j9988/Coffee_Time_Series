@@ -21,8 +21,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 st.set_page_config(
     page_title="Coffee Time Series Analysis and Forecasting",
-    page_icon="☕",  
-    layout="wide"   
+    page_icon="☕"
 )
 
 # Load the dataset
